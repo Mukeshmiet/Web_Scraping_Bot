@@ -18,10 +18,10 @@ class TerrorismSpider(scrapy.Spider):
     terrorismurls = []
     terrorism_data = []
 
-    # feed is used to generate json file
+    # feed is used to generate required json file 
     custom_settings = {
         'FEEDS': {
-            f'{name}_{dt.now().strftime("%Y-%m-%d_%H-%M-%S")}': {
+            f'{name}_{dt.now().strftime("%Y%m%d_%H%M%S")}': {
                 'format': 'json',
                 'encoding': 'utf8',
                 'overwrite': True,
@@ -33,6 +33,7 @@ class TerrorismSpider(scrapy.Spider):
         super(TerrorismSpider, self).__init__(name, **kwargs)
         options = Options()
         # options.add_argument("--headless")
+
         # change executable_path with yours 
         service = Service(executable_path='C:\\Users\\Mukesh\\Downloads\\chromedriver.exe')
         options = webdriver.ChromeOptions()
@@ -54,8 +55,9 @@ class TerrorismSpider(scrapy.Spider):
             self.driver.quit()
 
     def terrorurls(self):
-        self.driver.execute_script("window.scrollBy(0,1600)","") 
-        time.sleep(5)
+        '''This method will scrape all the terrorism url present on a single page'''
+        self.driver.execute_script("window.scrollBy(0,1600)","")
+        time.sleep(3)
         response = scrapy.Selector(text=self.driver.page_source)
         time.sleep(2)
         urls = self.driver.find_elements(by=By.XPATH, value='//div[@class="jet-engine-listing-overlay-wrap"]//a')
@@ -63,24 +65,26 @@ class TerrorismSpider(scrapy.Spider):
             self.terrorismurls.append(link.get_attribute("href"))
         
     def paginationurls(self):
+        '''This method will scrape all pages terrorism urls'''
         try:
             while self.driver.find_element(by=By.XPATH, value='//div[@class="jet-filters-pagination"]//div[@data-value="next"]'):
                 self.terrorurls()
+                time.sleep(3)
                 self.driver.find_element(by=By.XPATH, value='//div[@class="jet-filters-pagination"]//div[@data-value="next"]').click()
-                break    #remove it when complete
         except:
                 pass
-        time.sleep(5)
         self.terrorurls()
     
     def parse(self, response):
         try:
-            self.page_init(self.url)
+            self.page_init(self.url)    
             self.paginationurls()
 
+            # this will initilize each terrorism url
             for terrorurl in self.terrorismurls: 
                 self.page_init(terrorurl)
 
+                #Initilizing required data
                 pageurl = terrorurl 
                 category = 'null'
                 title = 'null'
@@ -91,7 +95,8 @@ class TerrorismSpider(scrapy.Spider):
                 imgurl = "null"
                 dob = "null"
 
-                #title
+                # Scraping Required Data
+                # title
                 try:
                     title =  self.driver.find_element(by=By.XPATH, value='//div[@id="hero-col"]//h2').text
                 except:
@@ -180,7 +185,6 @@ class TerrorismSpider(scrapy.Spider):
             print("___________________ ERROR ____________________")
             print(e)
             exc_type, exc_obj, exc_tb = sys.exc_info()
-            message = str(exc_type) + str(exc_obj) + \
-                ' At line no : ' + str(exc_tb.tb_lineno)
+            message = str(exc_type) + str(exc_obj) + ' At line no : ' + str(exc_tb.tb_lineno)
             l.error(message)
             self.driver.quit()
