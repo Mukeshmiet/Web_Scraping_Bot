@@ -16,10 +16,24 @@ class TerrorismSpider(scrapy.Spider):
     start_urls = ['https://rewardsforjustice.net']
     url = 'https://rewardsforjustice.net/index/?jsf=jet-engine:rewards-grid&tax=crime-category:1070%2C1071%2C1073%2C1072%2C1074'
     terrorismurls = []
+    terrorism_data = []
+
+    # feed is used to generate json file
+    custom_settings = {
+        'FEEDS': {
+            f'{name}_{dt.now().strftime("%Y-%m-%d_%H-%M-%S")}': {
+                'format': 'json',
+                'encoding': 'utf8',
+                'overwrite': True,
+                },
+            },
+    }
+
     def __init__(self, name=None, **kwargs):
         super(TerrorismSpider, self).__init__(name, **kwargs)
         options = Options()
         # options.add_argument("--headless")
+        # change executable_path with yours 
         service = Service(executable_path='C:\\Users\\Mukesh\\Downloads\\chromedriver.exe')
         options = webdriver.ChromeOptions()
         self.driver = webdriver.Chrome(service=service, options=options)
@@ -64,64 +78,102 @@ class TerrorismSpider(scrapy.Spider):
             self.page_init(self.url)
             self.paginationurls()
 
-            for terrorurl in self.terrorismurls[0:2]:   #remove it when complete
+            for terrorurl in self.terrorismurls: 
                 self.page_init(terrorurl)
 
                 pageurl = terrorurl 
                 category = 'null'
+                title = 'null'
+                reward_amount = 'null'
+                asscorg = "null"
+                asscloc = "null"
+                about = 'null'
+                imgurl = "null"
+                dob = "null"
+
+                #title
                 try:
                     title =  self.driver.find_element(by=By.XPATH, value='//div[@id="hero-col"]//h2').text
                 except:
-                    title = 'null'
+                    pass
+                
+                # reward amount
                 try:
                     reward_amount = self.driver.find_element(by=By.XPATH, value='//div[@id="reward-box"]//div[@class="elementor-widget-wrap elementor-element-populated"]/div[2]//h2').text
                 except:
-                    reward_amount = 'null'
+                    pass
                 try:
                     reward_amount = reward_amount.replace("Up to ", "")
                 except:
-                    reward_amount = 'null'
+                    pass
                 
+                # about
                 try:
                     about = self.driver.find_element(by=By.XPATH, value='//div[@id="reward-about"]').text
                 except:
-                    about = 'null'
+                    pass
                 
                 lenrewads= len(self.driver.find_elements(by=By.XPATH, value='//*[@id="reward-fields"]/div/div'))
                 
                 for num in range(1,lenrewads+1):
-                    print(f"$$$$$$$$$$$$${num}$$$$$$$$$$$$$$")
-                    # image heading
+                    # heading
                     try:
-                        heading = self.driver.find_element(by=By.XPATH, value=f'//*[@id="reward-fields"]/div/div[{num}]/div/h2').text
+                        heading = self.driver.find_element(by=By.XPATH, value=f'//*[@id="reward-fields"]/div/div[{num}]/div').text
                     except:
-                        pass
-                    # image url
-                    if 'images' in heading.lower(): 
-                        value = self.driver.find_element(by=By.XPATH, value='//*[@id="gallery-1"]/figure/div/a')
-                        value = value.get_attribute("href")
+                        heading = 'null'
+                    
+                    if 'null' not in heading:
+                        heading = heading.lower()
                     else:
-                        value = "null"
-
-                    if 'date of birth' in heading.lower():
-                        try:
-                            dob = self.driver.find_element(by=By.XPATH, value=f'//*[@id="reward-fields"]/div/div[{num+1}]/div').text
+                        pass
+                    
+                    # image url
+                    if 'images' in heading:
+                        try: 
+                            value = self.driver.find_element(by=By.XPATH, value='//*[@id="gallery-1"]/figure/div/a')
+                            imgurl = value.get_attribute("href")
                         except:
                             pass
-                        break
-                    else:
-                        dob = "null"
+
+                    # date of birth
+                    if 'date of birth' in heading:
+                        try:
+                            dob = self.driver.find_element(by=By.XPATH, value=f'//*[@id="reward-fields"]/div/div[{num+1}]/div').text
+                            dob = dt.strptime(dob,"%B %d, %Y")
+                            dob = dob.date().isoformat()
+                        except:
+                            pass
+
+                    # Associated Organization(s)
+                    if 'organizations' in heading:
+                        try:
+                            asscorg = self.driver.find_element(by=By.XPATH, value=f'//*[@id="reward-fields"]/div/div[{num+1}]/div').text
+                        except:
+                            pass
+                    
+                    # Associated Location(s)
+                    if 'location' in heading:
+                        try:
+                            asscloc = self.driver.find_element(by=By.XPATH, value=f'//*[@id="reward-fields"]/div/div[{num+1}]/div').text
+                        except:
+                            pass
                 
-                reqdata= {
+                terror_data= {
                     "pageUrl": pageurl,
+                    "category": category,
                     "title": title,
                     "reward_amount": reward_amount,
-                    "about" : about
+                    "associated organization(s)": asscorg,
+                    "associated location(s)": asscloc,
+                    "about" : about,
+                    "image url(s)": imgurl,
+                    "date of birth": dob,
                 }
+                self.terrorism_data.append(terror_data)
             
-                print("--------------------------")
-                print(dob)
-                print('--------------------------')
+            for data in self.terrorism_data:
+                yield data
+            
             self.driver.quit()
 
         except Exception as e:
